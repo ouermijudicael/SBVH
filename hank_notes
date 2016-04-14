@@ -1,0 +1,7 @@
+(1) debug initialization issue
+(2) integrate O(log n) search
+(3) measurements:
+-- build times
+-- how long per traversal in seconds
+---- in very fast, then do many many traversals
+-- how many nodes visited per traversal on average

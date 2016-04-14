@@ -1,0 +1,55 @@
+
+
+IsGoodPivot(possible_pivot)
+{
+    for (segments)
+        count how many on either side of pivot
+
+    if (well balanced)
+        return true;
+ 
+    return false;
+}
+
+IsGoodPivotWithHelp(possible_pivot, bool &goSmaller, bool &goodPivot)
+{
+    for (segments)
+        count how many on either side of pivot
+
+    if (well balanced)
+        goodPivot = true;
+ 
+    goodPivot = false;
+    goSmaller = true or false, based on balance;
+}
+
+float DeterminePivot()
+{
+    float possible_pivots[1000]; // get these from X values or Y or Z
+    for (int i = 0 ; i < 1000 ; i++)
+    {
+        if (IsGoodPivot(possible_pivots[i]))
+            return possible_pivots[i];
+    }
+}
+
+
+float HankDeterminePivot()
+{
+    float possible_pivots[1000]; // get these from X values or Y or Z
+    Sort(possible_pivots); // now ordered from smallest to largest
+    log_2(1000) invocations of IsGoodPivot
+
+    bool isGoodPivot, goSmaller;
+    IsGoodPivot(500, isGoodPivot, goSmaller);
+    if (goSmaller)
+        250
+    else
+        750
+    for (int i = 0 ; i < 1000 ; i++)
+    {
+        if (IsGoodPivot(possible_pivots[i]))
+            return possible_pivots[i];
+    }
+}
+
