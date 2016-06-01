@@ -63,8 +63,6 @@ class BVHSpliter: public SBVHData
     void 		updateBbox(float * , float *);
 
     // used when there is a overlap among the primitives
-    void		findObjectSplit(ObjectSplit &, SBVHNode &);
-    void                findObjectSplit1(ObjectSplit &, SBVHNode &);
     void                findObjectSplitMedian(ObjectSplit &, SBVHNode &);
     void                findBestSplit(ObjectSplit &, SBVHNode &);
     void                findBestSpatialSplit(ObjectSplit &, SBVHNode &);

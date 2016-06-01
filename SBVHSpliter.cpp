@@ -8,11 +8,16 @@
 #include <cmath>
 #include <fstream>
 
-#define SBVH_MIN_NUM_PRIMITIVES 10
+#define SBVH_MIN_NUM_PRIMITIVES 200
 
 // for debugging purposes
+// set all the globala variable when runing performance test
 int SBVHdebuger = 0;
-int  toy = 1;
+int toy = 0;
+int info = 0; 
+int initial_data_size = 0;
+int initial_num_of_primitives =0;
+
 using namespace std;
 
 SBVHSpliter::SBVHSpliter()
@@ -237,8 +242,8 @@ void SBVHSpliter::findBestSpatialSplit(SBVHObjectSplit & result, SBVHNode & node
     int P_span= 0;
     
     // determine step size to consider
-    if(n_node > 1000)
-    	step = floor(n_node/1000);
+    if(n_node > 10000)
+    	step = floor(n_node/10000);
 	//step =1;
 
     for(int idx_dim = 0; idx_dim < 4; idx_dim++)
@@ -387,7 +392,8 @@ void SBVHSpliter::findBestSpatialSplit(SBVHObjectSplit & result, SBVHNode & node
             ///cerr << "sah = " << sah << endl;
 
 	    // update cost
-	    if(C < result.Cost && left_range > 0.0001 && right_range > 0.0001)// && Pl > floor(n_node /4))
+	    if(C < result.Cost && left_range > 0.0001 && right_range > 0.0001 )
+		//&& Pl > floor(n_node /3) && Pr > floor(n_node/3))
 	    {
 	        //cerr << "dim " << idx_dim << endl;
 		//cerr << "Pl = " << Pl << endl;
@@ -400,7 +406,8 @@ void SBVHSpliter::findBestSpatialSplit(SBVHObjectSplit & result, SBVHNode & node
 		result.split_location = temp_split_location;
 		//result.small_to_split = false;
 	    }
-	    else if(C == result.Cost && left_range > 0.0001 && right_range > 0.0001)// && Pl > floor(n_node /4))
+	    else if(C == result.Cost && left_range > 0.0001 && right_range > 0.0001 )
+		//&& Pl > floor(n_node /3) && Pr > floor(n_node/3))
 	    {
 	        //cerr << "dim " << idx_dim << endl;
 		//cerr << "Pl = " << Pl << endl;
@@ -474,7 +481,7 @@ void SBVHSpliter::findBestSpatialSplit(SBVHObjectSplit & result, SBVHNode & node
 //********************************************************
 // 
 //********************************************************
-void SBVHSpliter::findObjectSplit1(SBVHObjectSplit &result, SBVHNode & node)
+void SBVHSpliter::findBestSplit(SBVHObjectSplit &result, SBVHNode & node)
 {
     //cerr << "Entering findObjectSplit1" << endl;
 
@@ -492,7 +499,7 @@ void SBVHSpliter::findObjectSplit1(SBVHObjectSplit &result, SBVHNode & node)
 	}
         // maybe i need to normalize time
     }
-    
+/*    
     // sort By axis
     if(dim == 0)
             sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than0());
@@ -503,7 +510,7 @@ void SBVHSpliter::findObjectSplit1(SBVHObjectSplit &result, SBVHNode & node)
     if(dim == 3)
             sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than3());
 
-
+*/
     //update cost and slpit location and other elements
     //double center = node.node_spec[n/2].center[dim];
     float center = (bbox[dim*2+1]+bbox[dim*2+0])/2;
@@ -555,6 +562,18 @@ void SBVHSpliter::findObjectSplitMedian(SBVHObjectSplit &result, SBVHNode & node
     //update cost and slpit location and other elements
     //float center = node.node_spec[index].getCenter(dim);
     float center = node.node_spec[index].bbox[2*dim +0];
+    
+    float left_range = abs(center - bbox[dim*2+0]);
+    float right_range = abs(center - bbox[dim*2+1]);
+    if(left_range < 0.0001 || right_range < 0.0001)// && Pl > floor(n_node /4))
+    {
+    	center = node.node_spec[index].bbox[2*dim +0];
+        left_range = abs(center - bbox[dim*2+0]);
+        right_range = abs(center - bbox[dim*2+1]);
+    }
+    if(left_range < 0.0001 || right_range < 0.0001)// && Pl > floor(n_node /4))
+    	center = node.node_spec[index].getCenter(dim);
+    
     C = -10;
     result.Cost = C;
     result.sort_dim = dim;
@@ -740,7 +759,7 @@ void SBVHSpliter::buildTree(SBVHNode & node, int me)
     
     //cerr << "me Primitives =" << tree[me].getNumPrimitives() << endl;
     //findObjectSplitMedian(split, tree[me]);
-    //findObjectSplit1(split, tree[me]);
+    //findBestSplit(split, tree[me]);
     findBestSpatialSplit(split, tree[me]);
     performObjectSplit(split, tree[me], nodeL, nodeR);
     
@@ -751,16 +770,16 @@ void SBVHSpliter::buildTree(SBVHNode & node, int me)
 
     if(SBVHdebuger == 1)
     {
-    cerr << "---------------------------" << endl;
-    cerr << "me " << me << " l =" << l << " r =" << r << endl;
-    cerr << "me Primitives =" << tree[me].getNumPrimitives() << endl;
-    cerr << "Left child Primitives =" << tree[l].getNumPrimitives() << endl;
-    cerr << "Right Child Primitives="<< tree[r].getNumPrimitives() << endl;
-    cerr << "split dim =" << tree[me].getSplitDim() << endl;
-    cerr << "split locatioin =" << tree[me].getSplitLocation() << endl;;
-    node.print();
-    tree[l].print();
-    tree[r].print();
+    	cerr << "---------------------------" << endl;
+    	cerr << "me " << me << " l =" << l << " r =" << r << endl;
+	cerr << "me Primitives =" << tree[me].getNumPrimitives() << endl;
+	cerr << "Left child Primitives =" << tree[l].getNumPrimitives() << endl;
+	cerr << "Right Child Primitives="<< tree[r].getNumPrimitives() << endl;
+	cerr << "split dim =" << tree[me].getSplitDim() << endl;
+	cerr << "split locatioin =" << tree[me].getSplitLocation() << endl;;
+	node.print();
+	tree[l].print();
+	tree[r].print();
     }
 /*   
     // for debbuging purposes
@@ -808,7 +827,7 @@ void SBVHSpliter::buildTree(SBVHNode & node, int me)
 
     }
 */
-    if(tree[l].getNumPrimitives() > SBVH_MIN_NUM_PRIMITIVES) // && l < 4)
+    if(tree[l].getNumPrimitives() > SBVH_MIN_NUM_PRIMITIVES && tree[l].isSmall(0.001) != true) // && l < 4)
 	  // && size< 10000) // HRC COMMENTED OUT
     {
         //cerr << "calling Build for left" << l << endl;
@@ -820,7 +839,7 @@ void SBVHSpliter::buildTree(SBVHNode & node, int me)
     	tree[l].setLeftChild(-2);
 	tree[l].setRightChild(-2);
     }
-    if(tree[r].getNumPrimitives() >  SBVH_MIN_NUM_PRIMITIVES) // && r <3)
+    if(tree[r].getNumPrimitives() >  SBVH_MIN_NUM_PRIMITIVES && tree[r].isSmall(0.001) != true) // && r <3)
 	   // && size < 10000) // HRC COMMENTED OUT
     {
         //cerr << "calling Build for right" << r << endl;
@@ -885,17 +904,17 @@ bool		SBVHSpliter::lessThanMinimumVolume(float * bb)
 
 
 
-	void 		SBVHSpliter::build()
-	{
-	   SBVHNode  root;
+void 		SBVHSpliter::build()
+{
+    SBVHNode  root;
 
-	   //read file to obtain data
-	   //read("ABCtest100BASIS");   
-	   read("ABCtracer");   
-        
-	/// testing with toy  data that is hand build
-	///
-	///o
+    //read file to obtain data
+    //read("ABCtest100BASIS");   
+    read("ABCtracer");   
+
+    /// testing with toy  data that is hand build
+    ///
+    ///o
 /*
 	   if(toy == 1)
 	   {
@@ -957,6 +976,7 @@ bool		SBVHSpliter::lessThanMinimumVolume(float * bb)
 
    }
 */
+   
    root.setPrimitivesIndex(getDataIndex(), getDataSize());
    root.setPrimitivesIndex(data, getDataSize());
    //if(SBVHdebugSpliter ==1)
@@ -969,6 +989,13 @@ bool		SBVHSpliter::lessThanMinimumVolume(float * bb)
 
    //tree = new SBVHNode[num_nodes];
    tree.push_back(root);
+   // gets info for analisis
+   if(info == 1)
+   {
+       initial_num_of_primitives = getDataSize();
+       initial_data_size = tree[0].getSizeOfData(data);
+   }
+
    tree_size = 1;
 /*
 //***********************************************************************************************
@@ -1043,6 +1070,8 @@ bool		SBVHSpliter::lessThanMinimumVolume(float * bb)
 }
 
 int traversal = 0;
+int final_traversal = 0;
+int num_points = 0;
 void 		SBVHSpliter::findSmallestNodesWithPoint(int current_node, float *pt, float r, int & ptr_r, int * r_stack)
 {
 	traversal++;
@@ -1083,6 +1112,7 @@ void 		SBVHSpliter::findSmallestNodesWithPoint(int current_node, float *pt, floa
             }
 	    else
 	    {
+		//cerr <<"calling findSmallestNodeWithPoint ...." << endl;
 		current_node = tree[current_node].getLeftChild();
 	        findSmallestNodesWithPoint(id_left, pt, r, ptr_r, r_stack);
 	    }
@@ -1099,6 +1129,7 @@ void 		SBVHSpliter::findSmallestNodesWithPoint(int current_node, float *pt, floa
             }
 	    else
 	    {
+		//cerr <<"calling findSmallestNodeWithPoint ...." << endl;
 		current_node = tree[current_node].getRightChild();
 	        findSmallestNodesWithPoint(id_right, pt, r, ptr_r, r_stack);
 	    }
@@ -1115,11 +1146,7 @@ void 		SBVHSpliter::findSmallestNodesWithPoint(int current_node, float *pt, floa
 //*************************************************************************
 void 		SBVHSpliter::findNode(float * pt, float r, vector<int> & result)
 {
-
-
     // check if it is left left
-
-
     // check if it is in right child
     int  * result_stack = new int[10000];
     //int path_stack[10000];
@@ -1149,10 +1176,19 @@ void 		SBVHSpliter::findNode(float * pt, float r, vector<int> & result)
     //int wrong_node = 0;
     if(SBVHdebuger == 1)
     {
-    cerr << "number of node with result = " << ptr_result+1 << endl;
-    cerr << "number of visits in the tree = " << traversal << endl;
-    traversal = 0;
+    	cerr << "number of node with result = " << ptr_result+1 << endl;
+    	cerr << "number of visits in the tree = " << traversal << endl;
     }
+
+    // for counting the number of traversal
+    if(traversal > 1)
+    {
+	final_traversal = final_traversal + traversal;
+	num_points++;
+    }
+
+    traversal = 0;
+
     find_for_loop_time = clock();
 
     for(int stack_idx=0; stack_idx<ptr_result+1; stack_idx++)
@@ -1216,7 +1252,7 @@ void 		SBVHSpliter::findNode(float * pt, float r, vector<int> & result)
         cerr << "find_for_loop_time = " << find_for_loop_time<< endl;
     }
     // free result and path stack
-    //delete [] result_stack;
+    delete [] result_stack;
     //delete [] path_stack;
 }
 
@@ -1388,10 +1424,10 @@ void 		SBVHSpliter::test()
     float deltaZ = (bb_node0[5]- bb_node0[4])/numb;
     float deltaT = (bb_node0[7]- bb_node0[6])/numb;
 
-    X[0] = 0.0;
-    Y[0] = 0.0;
-    Z[0] = 0.0;
-    T[0] = 0.0;
+    X[0] = bb_node0[0];
+    Y[0] = bb_node0[2];
+    Z[0] = bb_node0[4];
+    T[0] = bb_node0[6];
     for(int i=1; i<numb; i++)
     {
 	X[i] = X[i-1]+ deltaX;
@@ -1429,7 +1465,11 @@ void 		SBVHSpliter::test()
     search_time = clock();
 
     for(int i=0; i<numb*numb*numb*numb; i++)
-        findNode(point[i], .05, result_0);
+    {
+        findNode(point[i], 0.05, result_0);
+	//cerr << "Traversal = " << traversal << endl;
+	//traversal = 0;
+    }
         //findNode(temp_pt, 1.00, result_0);
 
     search_time = clock() - search_time;
@@ -1437,30 +1477,14 @@ void 		SBVHSpliter::test()
     search_time_sec = ((float)search_time) / CLOCKS_PER_SEC;
     //sort(result_0.begin(), result_0.end());
 
-    for(int i=0; i<numb*numb*numb*numb; i++)
-        traditionalFind(point[i], .05, result_1);
+    //for(int i=0; i<numb*numb*numb*numb; i++)
+        //traditionalFind(point[i], .05, result_1);
         //traditionalFind(temp_pt, 1.00, result_1);
     cout << "*********************SBVH Results*********************" << endl;
     cout << "Build time = " << build_time_sec << "		Search time =" << search_time_sec << endl;
     cout << "size of result 0 = " << result_0.size() <<endl;
     cout << "size of result 1 = " << result_1.size() <<endl;
     cout << "Tree size = " << tree.size() << endl;
-    //int tree_size = 0;
-    //getTreeSizeInByte(tree[0], tree_size);
-    //int size_of_data = sizeof(data) + getSizeInByte();
-    //int size_of_tree = sizeof(tree) + tree_size; 
-    //cout << "size of data in byte = " << size_of_data<< endl;
-    //cout << "size of tree in byte = " <<size_of_tree<< endl;
-
-/*
-    // save in files
-    fstream file;
-    file.open("BVHfile", fstream::in | fstream::out | fstream::app);
-    file <<  size_of_data << "\t";
-    file <<  size_of_tree << "\t";
-    file <<  build_time << "\t";
-    file <<  search_time << "\n";
-    file.close();
 
     for(int i=0; i < result_1.size(); i++)
     	cout << result_0[i] << ", ";
@@ -1469,22 +1493,25 @@ void 		SBVHSpliter::test()
     	cout << result_1[i] << ", ";
     cout<< endl;
 
-    //tree[0].print(); 
-    // testing my split of primitive
-    static double pt1[4] = {.8, .3, .1, 4.5};
-    cerr << data[9] << endl;
-    cerr << data[9][0] << endl;
-    cerr << data[9][1] << endl;
-    vector<Tracer> t;
-    data[9].splitTracer(.8, t, 0);
-    cerr << data[9] << endl;
-    cerr << data[9][0] << endl;
-    cerr << data[9][1] << endl;
-    cerr << t[0] << endl;
-    cerr << t[0][0] << endl;
-    cerr << t[0][1] << endl;
-    //cerr << data[9] << endl;
-    cerr << t.size() << endl;
-*/    
+    int size_of_tree = tree[0].getSizeOfTree(tree);
+    int size_of_data = tree[0].getSizeOfData(data); 
+    int num_of_primitives = data.size();
+    int num_of_nodes = tree.size();
+    cout << "size of data in byte = " << size_of_data<< endl;
+    cout << "size of tree in byte = " <<size_of_tree<< endl;
 
+
+    // save in files
+    fstream file;
+    file.open("SBVHfile", fstream::in | fstream::out | fstream::app);
+    file <<  initial_num_of_primitives  << "\t";
+    file <<  initial_data_size << "\t";
+    file <<  num_of_primitives << "\t";
+    file <<  size_of_data << "\t";
+    file <<  num_of_nodes << "\t";
+    file <<  size_of_tree << "\t";
+    file <<  build_time_sec << "\t";
+    file <<  search_time_sec << "\t";
+    file <<  ((float)final_traversal)/((float)num_points)<< "\n";
+    file.close();
 }

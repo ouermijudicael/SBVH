@@ -11,8 +11,12 @@
 
 #define SKDTREE_MIN_NUM_PRIMITIVES 200
 // for debugging purposes
-int SKDTREEdebuger = 1;
+int SKDTREEdebuger = 0;
 int  toy_skdt = 1;
+int info_skdt = 0;
+int initial_data_size_skdt = 0;
+int initial_num_of_primitives_skdt =0;
+
 
 using namespace std;
 
@@ -362,7 +366,9 @@ void 	SKDTREESpliter::findBestSpatialSplit(SKDTreeObjectSplit & result, SBVHNode
 	        //if(temp_split_location>=temp_bb[idx_dim*2+1])
 	        //     Pl++;
 	    }
-            Pl = idx_node;
+       
+            Pl = idx_node + P_span;
+	    Pr = n_node - idx_node + P_span;
 	    // surface area 
 	    left_sah = calculateSAH(left_bbox);
 	    right_sah = calculateSAH(right_bbox);
@@ -370,7 +376,7 @@ void 	SKDTREESpliter::findBestSpatialSplit(SKDTreeObjectSplit & result, SBVHNode
 
 	    // calculte cost update 
 	    //C = ((Pl+temp_Pl)*left_sah + (Pr+temp_Pr)*right_sah) / sah;
-	    C = ((Pl+P_span)*left_sah + (n_node - Pl + P_span)*right_sah) / sah;
+	    C = (Pl*left_sah + Pr*right_sah) / sah;
              
  	    left_range = abs(temp_split_location - bbox[idx_dim*2+0]);
  	    right_range = abs(temp_split_location - bbox[idx_dim*2+1]);
@@ -439,7 +445,7 @@ void 	SKDTREESpliter::findBestSpatialSplit(SKDTreeObjectSplit & result, SBVHNode
 	    cerr << "Split dim = " << result.sort_dim << endl;;
 	    cerr << "Split case = " << split_case << endl;
  	    node.print();
-	    exit(0);
+	    exit(1);
 	}
     }
     //for debuggin purposes 
@@ -457,7 +463,7 @@ void 	SKDTREESpliter::findBestSpatialSplit(SKDTreeObjectSplit & result, SBVHNode
 	 cerr << "Split case = " << split_case << endl;
          cerr << bbox[result.sort_dim*2+0] << "__"<< bbox[result.sort_dim*2+1] << endl;
          node.print();
-	 exit(0);
+	 exit(1);
     }
     if(result.sort_dim < 0 || result.sort_dim > 3)
     {
@@ -469,7 +475,7 @@ void 	SKDTREESpliter::findBestSpatialSplit(SKDTreeObjectSplit & result, SBVHNode
         cerr << "Split dim = " << result.sort_dim << endl;;
 	cerr << "Split case = " << split_case << endl;
         node.print();
-	exit(0);
+	exit(1);
     }
 
     node.setSplitLocation(result.split_location);
@@ -479,7 +485,7 @@ void 	SKDTREESpliter::findBestSpatialSplit(SKDTreeObjectSplit & result, SBVHNode
 //********************************************************
 // 
 //********************************************************
-void SKDTREESpliter::findObjectSplit1(SKDTreeObjectSplit &result, SBVHNode & node)
+void SKDTREESpliter::findBestSplit(SKDTreeObjectSplit &result, SBVHNode & node)
 {
     //cerr << "Entering findObjectSplit1" << endl;
 
@@ -499,6 +505,7 @@ void SKDTREESpliter::findObjectSplit1(SKDTreeObjectSplit &result, SBVHNode & nod
         // maybe i need to normalize time
     }
     
+/*
     // sort By axis
     if(dim == 0)
             sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than0());
@@ -509,7 +516,7 @@ void SKDTREESpliter::findObjectSplit1(SKDTreeObjectSplit &result, SBVHNode & nod
     if(dim == 3)
             sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than3());
 
-
+*/
     //update cost and slpit location and other elements
     //float center = node.node_spec[n/2].center[dim];
     float center = (bbox[dim*2+1]+bbox[dim*2+0])/2;
@@ -780,9 +787,7 @@ void SKDTREESpliter::buildTree(SBVHNode & node, int me)
 
     //findBestSplit(split, node);
     findBestSpatialSplit(split, node);
-    //findObjectSplit1(split, node);
     //findObjectSplitMedian(split, node);
-    //findObjectSplit1(split, node);
     performSplit(split, node, nodeL, nodeR);
      //cerr << "After Split Operation" << endl;
 
@@ -801,7 +806,7 @@ void SKDTREESpliter::buildTree(SBVHNode & node, int me)
     node.print();
     }
 
-    if(tree[l].getNumPrimitives() > SKDTREE_MIN_NUM_PRIMITIVES)
+    if(tree[l].getNumPrimitives() > SKDTREE_MIN_NUM_PRIMITIVES && tree[l].isSmall(0.001) != true)
     {
         //cerr << "conditional 1" << endl;
     	buildTree(tree[l], l);
@@ -811,7 +816,7 @@ void SKDTREESpliter::buildTree(SBVHNode & node, int me)
         tree[l].setLeftChild(-2);
         tree[l].setRightChild(-2);
     }
-    if(tree[r].getNumPrimitives() >  SKDTREE_MIN_NUM_PRIMITIVES)
+    if(tree[r].getNumPrimitives() >  SKDTREE_MIN_NUM_PRIMITIVES && tree[l].isSmall(0.001) != true)
     {
         //cerr << "conditional 2" << endl;
     	buildTree(tree[r], r);
@@ -974,19 +979,28 @@ void 		SKDTREESpliter::build()
    root.print();
    root.setParent(-1);
    tree.push_back(root); 
+
+   if(info_skdt == 1)
+   {
+       initial_num_of_primitives_skdt = getDataSize();
+       initial_data_size_skdt = tree[0].getSizeOfData(data);
+   }
    tree_size = 1;
 
    buildTree(tree[0], 0);
-   ofstream ofile("hankSKD");
-   tree[0].Print(ofile, 0, 0, tree);
+   //ofstream ofile("hankSKD");
+   //tree[0].Print(ofile, 0, 0, tree);
    tree[0].clear();
-   cerr << "Tree size" << tree.size() << endl;
+   //cerr << "Tree size" << tree.size() << endl;
 
    //tree[3].print();
    //if(debugKDTREE ==1)
    	//cerr << "done seting building Tree" << endl;
 }
 int traversalSKD = 0;
+int final_traversalSKD = 0;
+int num_points_SKDT = 0;
+
 void 		SKDTREESpliter::findSmallestNodesWithPoint(int current_node, float *pt, float r, int & ptr_r, int * r_stack)
 {
 	traversalSKD++;
@@ -1161,8 +1175,15 @@ void 		SKDTREESpliter::findNode(float * pt, float r, vector<int> & result)
     //int wrong_node = 0;
     cerr << "number of node with result = " << ptr_result+1 << endl;
     cerr << "number of visits in the tree = " << traversalSKD << endl;
-    traversalSKD = 0;
     }
+
+    if(traversalSKD >1)
+    {
+	final_traversalSKD = final_traversalSKD + traversalSKD;
+	num_points_SKDT++;
+    }
+    traversalSKD = 0;
+
     find_for_loop_time = clock();
     
     for(int stack_idx=0; stack_idx<ptr_result+1; stack_idx++)
@@ -1341,11 +1362,34 @@ void 		SKDTREESpliter::test()
     for(int i=0; i< numb*numb*numb*numb; i++)
         traditionalFind(point[i], .050, result_1);
         //traditionalFind(temp_pt, 1.00, result_1);
-    cout << "*********************KDTREE Results*********************" << endl;
+    cout << "*********************SKDTREE Results*********************" << endl;
     cout << "Build time = " << build_time_sec << "		Search time =" << search_time_sec << endl;
     cout << "size of result 0 = " << result_0.size() <<endl;
     cout << "size of result 1 = " << result_1.size() <<endl;
     cout << "tree size = " << tree.size() << endl;
+
+    int size_of_tree = tree[0].getSizeOfTree(tree);
+    int size_of_data = tree[0].getSizeOfData(data); 
+    int num_of_primitives = data.size();
+    int num_of_nodes = tree.size();
+    cout << "size of data in byte = " << size_of_data<< endl;
+    cout << "size of tree in byte = " <<size_of_tree<< endl;
+
+
+    // save in files
+    fstream file;
+    file.open("SKDTfile", fstream::in | fstream::out | fstream::app);
+    file <<  initial_num_of_primitives_skdt  << "\t";
+    file <<  initial_data_size_skdt << "\t";
+    file <<  num_of_primitives << "\t";
+    file <<  size_of_data << "\t";
+    file <<  num_of_nodes << "\t";
+    file <<  size_of_tree << "\t";
+    file <<  build_time_sec << "\t";
+    file <<  search_time_sec << "\t";
+    file <<  ((float)final_traversalSKD)/((float)num_points_SKDT) << "\n";
+    file.close();
+
 /*
 // debugging
     int test_id = 3339; 
@@ -1412,16 +1456,7 @@ for(int i =0; i<num_primitives; i++)
     //cout << "size of data in byte = " << size_of_data<< endl;
     //cout << "size of tree in byte = " <<size_of_tree<< endl;
 
-/*
-    // save in files
-    fstream file;
-    file.open("KDTfile", fstream::in | fstream::out | fstream::app);
-    file <<  size_of_data << "\t";
-    file <<  size_of_tree << "\t";
-    file <<  build_time << "\t";
-    file <<  search_time << "\n";
-    file.close();
-    
+   
     for(int i=0; i < result_0.size(); i++)
     	cout << result_0[i] << ", ";
     cout<< endl;
@@ -1429,5 +1464,4 @@ for(int i =0; i<num_primitives; i++)
     	cout << result_1[i] << ", ";
     cout<< endl;
 
-*/
-}
+   }

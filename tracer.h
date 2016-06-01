@@ -113,6 +113,29 @@ struct Segment
 	s.setBbox();
     }
 
+    void 		splitSegment2(float split_pos, Segment & s1, Segment & s2, int split_dim)
+    {
+	float pt[4];
+	for(int i=0; i<4; i++)
+	{
+	    pt[i] = interpolate(split_pos,  pt0[split_dim], pt1[split_dim], pt0[i], pt1[i]);
+	    //pt[i] = interpolate(split_pos,  bbox[split_dim*2+0], bbox[split_dim*2+1], bbox[i*2+0], bbox[i*2+1]);
+	}
+	for(int i=0; i<4; i++)
+	{
+	    s1.pt0[i] = pt[i];
+	    s1.pt1[i] = pt1[i];
+            s2.pt0[i] = pt0[i];
+	    s2.pt1[i] = pt[i];
+	}
+	s1.tracer_id = tracer_id;
+        s1.id = id;
+	s1.setBbox();
+	s2.tracer_id = tracer_id;
+	s2.id = id;
+	s2.setBbox();
+    }
+
     // checks if the point is in the segment
     // here we only care about time
     bool 		findPosition(float * pt)
@@ -137,7 +160,7 @@ struct Segment
 	    }
 
 	    result = sqrt(pow((temp_point[0]-pt[0]), 2) + pow((temp_point[1]-pt[1]), 2) + 
-			  pow((temp_point[2]-pt[2]), 2) + pow((temp_point[3]-pt[3]), 2) );
+			  pow((temp_point[2]-pt[2]), 2) ); //+ pow((temp_point[3]-pt[3]), 2) );
 	    return result;
     }
 

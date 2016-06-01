@@ -35,6 +35,9 @@ class SBVHNode
 
   public:
     void Print(ostream &, int, int, std::vector<SBVHNode> &);
+    int getSizeOfTree(std::vector<SBVHNode> &);
+    int getSizeOfData(std::vector<Segment> &);
+
 
     //cotains indeces of different primitives
     //change later to array
@@ -80,6 +83,8 @@ class SBVHNode
     // returns location of left child
     int           		getLeftChild();
 
+    // check if the boox is small
+    bool			isSmall(float s);
     // returns location of right child
     int           		getRightChild();
 

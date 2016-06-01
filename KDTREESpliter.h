@@ -80,11 +80,12 @@ class KDTREESpliter: public SBVHData
     void		build();
 
     // Find all tracers with in a radius
+    void 		findSmallestNodesWithPoint(int current_node, float *pt, float r, int & ptr_r, int * r_stack);
     void	 		findNode(float *, float, vector<int> & );
     void	 		traditionalFind(float *, float , vector<int> &);
 
     // checks if a point is in the node
-    bool 		isInNode(int , float *);
+    bool 		isInNode(int , float *, float);
 
     // threshold volume
     bool 		lessThanMinimumVolume(float *);

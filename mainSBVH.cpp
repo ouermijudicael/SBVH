@@ -16,7 +16,7 @@ int main()
 {
      SBVHSpliter * s0 = new SBVHSpliter();
      SKDTREESpliter * s1 = new SKDTREESpliter();
-     //s0->test();
+     s0->test();
      s1->test();
      cout << "end" << endl;
      return 0;

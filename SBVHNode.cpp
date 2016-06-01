@@ -24,6 +24,27 @@ SBVHNode::SBVHNode()
     split_dim = -10;
     numprimitives = -10;
     segment_indeces.resize(0);
+}
+
+int SBVHNode::getSizeOfTree(std::vector<SBVHNode> & t)
+{
+    int result = sizeof(t);
+    for(int i=0; i<t.size(); i++)
+    {
+       result = result + sizeof(float)*8 + sizeof(t[i])  + sizeof(int)*t[i].getNumPrimitives();
+    }
+    return result;
+}
+
+int SBVHNode::getSizeOfData(std::vector<Segment> & d)
+{
+
+    int result = sizeof(d);
+    for(int i=0; i<d.size(); i++)
+    {
+	result = result + sizeof(d[i]) + sizeof(float)*16;
+    }
+    return result;
 
 }
 
@@ -150,6 +171,15 @@ SBVHNode & 		SBVHNode::operator= (const SBVHNode & node)
         segment_indeces[i] = node.segment_indeces[i];
 	node_spec[i] = node.node_spec[i];
     }
+}
+
+bool			SBVHNode::isSmall(float s)
+{
+     bool result = false;
+     if(abs(bbox[1]-bbox[0]) < s && abs(bbox[3] - bbox[2]) < s &&
+	abs(bbox[5]-bbox[4]) < s && abs(bbox[7] - bbox[6]) < s )
+	result = true;
+     return result;
 }
 
 void 	   		SBVHNode::append(Segment s)			{node_spec.push_back(s);}
