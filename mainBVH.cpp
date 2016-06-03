@@ -16,7 +16,7 @@ using namespace std;
 int main()
 {
      BVHSpliter * s0 = new BVHSpliter();
-     //s0->test();
+     s0->test();
     
      KDTREESpliter * s1 = new KDTREESpliter();
      s1->test();

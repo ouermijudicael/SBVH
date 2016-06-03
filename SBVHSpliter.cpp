@@ -9,6 +9,7 @@
 #include <fstream>
 
 #define SBVH_MIN_NUM_PRIMITIVES 200
+#define SBVH_MAX_TREE_SIZE 100000
 
 // for debugging purposes
 // set all the globala variable when runing performance test
@@ -242,8 +243,8 @@ void SBVHSpliter::findBestSpatialSplit(SBVHObjectSplit & result, SBVHNode & node
     int P_span= 0;
     
     // determine step size to consider
-    if(n_node > 10000)
-    	step = floor(n_node/10000);
+    if(n_node > 1000)
+    	step = floor(n_node/1000);
 	//step =1;
 
     for(int idx_dim = 0; idx_dim < 4; idx_dim++)
@@ -768,7 +769,7 @@ void SBVHSpliter::buildTree(SBVHNode & node, int me)
     tree.push_back(nodeR);
     int  size = tree.size();
 
-    if(SBVHdebuger == 1)
+    //if(SBVHdebuger == 1)
     {
     	cerr << "---------------------------" << endl;
     	cerr << "me " << me << " l =" << l << " r =" << r << endl;
@@ -827,8 +828,8 @@ void SBVHSpliter::buildTree(SBVHNode & node, int me)
 
     }
 */
-    if(tree[l].getNumPrimitives() > SBVH_MIN_NUM_PRIMITIVES && tree[l].isSmall(0.001) != true) // && l < 4)
-	  // && size< 10000) // HRC COMMENTED OUT
+    if(tree[l].getNumPrimitives() > SBVH_MIN_NUM_PRIMITIVES && tree[l].isSmall(0.001) != true //)
+	   && tree.size()< SBVH_MAX_TREE_SIZE) 
     {
         //cerr << "calling Build for left" << l << endl;
     	buildTree(tree[l], l);
@@ -839,8 +840,8 @@ void SBVHSpliter::buildTree(SBVHNode & node, int me)
     	tree[l].setLeftChild(-2);
 	tree[l].setRightChild(-2);
     }
-    if(tree[r].getNumPrimitives() >  SBVH_MIN_NUM_PRIMITIVES && tree[r].isSmall(0.001) != true) // && r <3)
-	   // && size < 10000) // HRC COMMENTED OUT
+    if(tree[r].getNumPrimitives() >  SBVH_MIN_NUM_PRIMITIVES && tree[r].isSmall(0.001) != true //) 
+	   && tree.size()< SBVH_MAX_TREE_SIZE) 
     {
         //cerr << "calling Build for right" << r << endl;
     	buildTree(tree[r], r);

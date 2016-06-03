@@ -176,8 +176,8 @@ SBVHNode & 		SBVHNode::operator= (const SBVHNode & node)
 bool			SBVHNode::isSmall(float s)
 {
      bool result = false;
-     if(abs(bbox[1]-bbox[0]) < s && abs(bbox[3] - bbox[2]) < s &&
-	abs(bbox[5]-bbox[4]) < s && abs(bbox[7] - bbox[6]) < s )
+     if(abs(bbox[1]-bbox[0]) < s || abs(bbox[3] - bbox[2]) < s ||
+	abs(bbox[5]-bbox[4]) < s || abs(bbox[7] - bbox[6]) < s )
 	result = true;
      return result;
 }
