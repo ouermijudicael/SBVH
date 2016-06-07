@@ -8,7 +8,7 @@ using namespace std;
 
 void createABCtracer()
 {
-    int num_of_tracers = 10000;
+    int num_of_tracers = 1000;
 
 
     // openfile

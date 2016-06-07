@@ -10,7 +10,7 @@
 #include <fstream>
 
 #define KDT_MIN_NUM_PRIMITIVES 200
-#define KDT_MAX_TREE_SIZE 100000
+#define KDT_MAX_TREE_SIZE 1000000
 
 // for debugging purposes
 int KDTdebuger = 0;
@@ -109,27 +109,7 @@ void KDTREESpliter::append(vector<Segment>& arr, Segment & id)
     arr.push_back(id);
 }
 
-/*
-//*********************************************************************
-// This updates all the ancesters after a split is performed
-// to make sure node conserves there initegraty
-//**********************************************************************
-void KDTREESpliter::updateAncesters(SBVHNode & node, Segment s, int idx)
-{
-    int parent_idx = node.getParent();
-    node.append(idx);
-    node.append(s);
-    cerr << "idx =" << idx << endl; 
-    while(parent_idx > -1)
-    {
-	//tree[parent_idx].append(s);
-	tree[parent_idx].append(idx);
-	parent_idx = tree[parent_idx].getParent();
-    }
-}
-*/
-
-//NOt used
+//NOT USED
 bool		KDTREESpliter::lessThanMinimumVolume(float * bb)
 {
     bool result = false;
@@ -214,9 +194,299 @@ void 		KDTREESpliter::getTreeSizeInByte(SBVHNode & root, int & result)
 // This use sah to find the best Split 
 // for the data
 //**************************************************************
-void 	KDTREESpliter::findBestObjectSplit(ObjectSplitTree & result, SBVHNode & node)
-//void 	KDTREESpliter::findBestSpatialSplit(ObjectSplitTree & result, SBVHNode & node)
+//void 	KDTREESpliter::findBestObjectSplit(ObjectSplitTree & result, SBVHNode & node)
+void 	KDTREESpliter::findBestSpatialSplit(ObjectSplitTree & result, SBVHNode & node)
 {
+
+   //cerr << "Entering findObjectSplit1" << endl;
+    int Pl = 0; 
+    int Pr = 0;
+    int temp_Pl = 0; 
+    int temp_Pr = 0;
+    float left_sah, right_sah, C;
+    int n_node =  node.getNumPrimitives();
+    float * bbox = node.getBbox();
+    float left_range = 10; 
+    float right_range = 10; 
+
+    //float range = 0;
+    result.Cost = 1000000;
+    result.small_to_split = true;
+    result.sort_dim = -10;
+    result.Pl = -10;
+    result.Pr = -10;
+    result.split_location = -10;
+    //bool right_bound = true;
+
+    // split_case = 0  --> we consider segements lower bound for the splits
+    // split case = 1  --> we consider the segments upper bound for splits 
+    int split_case = 0;
+
+    //iset the temp bbox
+    float left_bbox[8];
+    float  right_bbox[8];
+    float temp_split_location = -10000000;
+    float * seg_bb;
+
+    //bool left_overlap;
+    //bool right_overlap;
+    float sah = -10000;
+    int step = 1;
+    int threshold_num = -10;
+    int threshold_num_begin= -10;
+    int P_span= 0;
+    
+    // determine step size to consider
+    if(n_node > 100)
+    	step = floor(n_node/100);
+	//step =1;
+
+    for(int idx_dim = 0; idx_dim < 4; idx_dim++)
+    {
+      split_case = -1;
+      while(split_case < 1)
+      {// begining of while
+        split_case++;
+
+	// sort By axis
+    	if(idx_dim == 0 && split_case == 0)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than0_lower_bound());
+    	else if(idx_dim == 0 && split_case == 1)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than0_upper_bound());
+    	else if(idx_dim == 0 && split_case == 2)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than0());
+        else if(idx_dim == 1 && split_case == 0)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than1_lower_bound());
+    	else if(idx_dim == 1 && split_case == 1)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than1_upper_bound());
+    	else if(idx_dim == 1 && split_case == 2)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than1());
+    	else if(idx_dim == 2 && split_case == 0)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than2_lower_bound());
+    	else if(idx_dim == 2 && split_case == 1)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than2_upper_bound());
+    	else if(idx_dim == 2 && split_case == 2)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than2());
+ 	else if(idx_dim == 3 && split_case == 0)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than3_lower_bound());
+    	else if(idx_dim == 3 && split_case == 1)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than3_upper_bound());
+    	else if(idx_dim == 3 && split_case == 2)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than3());
+        else 
+	{
+	   cerr <<  "Not suppose to occur : " << endl;
+	}
+
+	//cerr << "range = " << abs(bbox[idx_dim*2 + 1] - bbox[idx_dim*2]) << endl;
+	//range = abs(bbox[idx_dim*2 + 1] - bbox[idx_dim*2]);
+    	Pl = 0; 
+    	Pr = 0;
+        temp_Pl =0;
+        for(int idx_node=0; idx_node<n_node; idx_node= idx_node +step)
+	{
+	
+	    if(KDTdebuger == 1)
+            {
+	    //cerr << "idx_node =" << idx_node << endl; 
+	    //node.node_spec[idx_node].print();
+            }
+       	    seg_bb = node.node_spec[idx_node].getBbox();
+
+            if(split_case == 0 && seg_bb[idx_dim*2+0] != bbox[idx_dim*2+0])
+            {
+            	temp_split_location = seg_bb[idx_dim*2+0];
+	    }
+	    else if(split_case == 0 && seg_bb[idx_dim*2+0] == bbox[idx_dim*2+0])
+            {
+		goto label;
+            }
+	    else if(split_case == 1 && seg_bb[idx_dim*2+1] != bbox[idx_dim*2+1])
+	    {
+            	temp_split_location = seg_bb[idx_dim*2+1];
+            }
+
+	    else if(split_case == 1 && seg_bb[idx_dim*2+1] == bbox[idx_dim*2+1])
+	    {
+		goto label;
+	    }
+      	    else if(split_case == 2) // not used yet
+	    {
+            	temp_split_location = (seg_bb[idx_dim*2+0] + seg_bb[idx_dim*2+1]) /2;
+	    }
+
+	    //cerr << "temp split location =" << temp_split_location <<  endl;
+	    //cerr << "split case =" << split_case <<  endl;
+
+            // setting temp bounding boxes
+            for(int i=0; i<4; i++)
+	    {
+                if(idx_dim == i)
+	        {
+		    left_bbox[i*2+0] = bbox[i*2+0];
+		    left_bbox[i*2+1] = temp_split_location;
+		    right_bbox[i*2+0] = temp_split_location;
+		    right_bbox[i*2+1] = bbox[i*2+1];
+	        }
+		else
+		{
+	            left_bbox[i*2+0] = bbox[i*2+0];
+		    left_bbox[i*2+1] = bbox[i*2+1];
+		    right_bbox[i*2+0] = bbox[i*2+0];
+		    right_bbox[i*2+1] = bbox[i*2+1];
+		}
+             }
+
+// Do not remove this tajo
+            // set up range to determinw overlaps
+	    if((n_node - idx_node) > 10000)
+	    	threshold_num = idx_node + 10000;
+	    else
+	    	threshold_num = n_node;
+
+	    if(idx_node >10000)
+		threshold_num_begin =idx_node - 10000;
+	    else  
+		threshold_num_begin =0;
+	    //temp_Pl= 0;
+	    temp_Pr = 0;
+            P_span = 0;
+            for(int idx_tracer= threshold_num_begin; idx_tracer < threshold_num; idx_tracer++)
+	    {
+		//counting++;
+                float * temp_bb = node.node_spec[idx_tracer].getBbox(); 
+
+		if(temp_bb[idx_dim*2+0] < temp_split_location && temp_split_location < temp_bb[idx_dim*2+1])
+		     P_span++;
+	        //if(temp_split_location>=temp_bb[idx_dim*2+1])
+	        //     Pl++;
+	    }
+
+            // calculation of number of nodes on each side
+            Pl = idx_node + P_span;
+	    Pr = n_node - idx_node + P_span;
+	    // surface area 
+	    left_sah = calculateSAH(left_bbox);
+	    right_sah = calculateSAH(right_bbox);
+	    sah = node.getSAH();
+
+	    // calculte cost update 
+	    C = ((Pl)*left_sah + (Pr)*right_sah) / sah;
+
+            left_range = abs(temp_split_location - bbox[idx_dim*2+0]);
+            right_range = abs(temp_split_location - bbox[idx_dim*2+1]);
+            //cerr << "Cost saved in result = " << result.Cost << endl; 
+	    //cerr << "new Cost = " << C << endl;
+            //cerr << "left_sah = " << left_sah << endl;
+	    //cerr << "right_sah = "<< right_sah << endl;
+	    //cerr << "Pl = " << Pl+temp_Pl << endl;
+	    //cerr << "Pr = " << Pr+temp_Pr << endl;
+            ///cerr << "sah = " << sah << endl;
+
+	    // update cost
+	    if(C < result.Cost && left_range > 0.0001 && right_range > 0.0001) // &&
+	     	    //temp_split_location < bbox[idx_dim*2 +1] && temp_split_location > bbox[idx_dim*2+0] ) 
+		//&& P_span < n_node/3)
+		//&& Pl > floor(n_node /3) && Pr > floor(n_node/3))
+	    {
+	        //cerr << "dim " << idx_dim << endl;
+		//cerr << "Pl = " << Pl << endl;
+		//cerr << "Pr = " << Pr << endl;
+		//cerr << "Cost =" << C << endl;
+		result.Cost = C;
+		result.Pl = Pl;
+	        result.Pr = Pr;
+		result.sort_dim = idx_dim;
+		result.split_location = temp_split_location;
+		//result.small_to_split = false;
+	    }
+	    else if(C == result.Cost && left_range > 0.0001 && right_range > 0.0001)// && 
+	     	    //temp_split_location < bbox[idx_dim*2 +1] && temp_split_location > bbox[idx_dim*2+0] ) 
+		//&& P_span < n_node/3)
+		//&& Pl > floor(n_node /3) && Pr > floor(n_node/3))
+	    {
+	        //cerr << "dim " << idx_dim << endl;
+		//cerr << "Pl = " << Pl << endl;
+		//cerr << "Pr = " << Pr << endl;
+		//cerr << "Cost =" << C << endl;
+		//cerr << "Updating cost" << endl;
+                //cerr << " abs(Pl-Pr) = "<<  abs(Pl-Pr) << endl; 
+		//cerr << " abs(result.Pr - result.Pl)" << abs(result.Pr - result.Pl) << endl;
+                if( abs(Pl-Pr) < abs(result.Pr - result.Pl) )
+		{
+                   result.Pr = Pr;
+		   result.Pl = Pl;
+		   result.Cost = C;
+		   result.sort_dim = idx_dim;
+		   result.split_location = temp_split_location;
+		   //result.small_to_split = false;
+	  	}
+	    }
+        //cerr << "Split Cost =" <<result.Cost << endl;
+        //cerr << "split locatioin" << result.split_location << endl;
+	//cerr << "Pl "<< result.Pl << endl;
+	//cerr << "Pr "<< result.Pr << endl;
+        //cerr << "sort dim = " << result.sort_dim << endl;
+        //cerr << "node bbox =" << bbox[2*result.sort_dim] << "__" << bbox[2*result.sort_dim+1] << endl; 
+
+	label : ;
+        }// end of for loop
+      }// end of while
+      //if(result.split_location == bbox[2*result.sort_dim + 0] || result.split_location == bbox[2*result.sort_dim + 1])
+      if(abs(result.split_location- bbox[2*result.sort_dim + 0]) < 0.00001 || abs(result.split_location - bbox[2*result.sort_dim + 1]) < .00001)
+      {
+        cerr << " Not suppose to occur idx dim = " << idx_dim << endl;
+	cerr << "Pl "<< result.Pl << endl;
+	cerr << "Pr "<< result.Pr << endl;
+        cerr << "Split Cost =" <<result.Cost << endl;
+        cerr << "Split location =" <<result.split_location << endl;
+        cerr << "Split dim = " << result.sort_dim << endl;;
+	cerr << "Split case = " << split_case << endl;
+        node.print();
+	exit(1);
+      }
+    }
+
+    float range = -10;
+    int idx_dim = -10;
+    if(result.sort_dim ==-10 || result.sort_dim ==1000000 ||
+	(result.sort_dim == tree[node.getParent()].getSplitDim() &&
+	(result.split_location = tree[node.getParent()].getSplitLocation() ))
+	|| (temp_split_location < bbox[idx_dim*2 +1] && temp_split_location > bbox[idx_dim*2+0] ) 
+	)
+    {
+        for(int i= 0; i<4; i++)
+        {
+           if((bbox[2*i+1]-bbox[2*i+0]) >=range && i != result.sort_dim)	
+	   {
+		range = bbox[2*i+1] - bbox[2*i+0];
+		idx_dim = i;
+	   }
+        }
+ 
+	result.split_location = (bbox[2*idx_dim+0] + bbox[2*idx_dim+1])/2;
+        result.sort_dim = idx_dim;
+    }
+
+
+    if(result.sort_dim < 0 || result.sort_dim>3)
+    {
+	cerr << "not suppose to occur" << endl;
+	cerr << "Pl "<< result.Pl << endl;
+	cerr << "Pr "<< result.Pr << endl;
+        cerr << "Split Cost =" <<result.Cost << endl;
+        cerr << "Split location =" <<result.split_location << endl;
+        cerr << "Split dim = " << result.sort_dim << endl;;
+	cerr << "Split case = " << split_case << endl;
+        node.print();
+	exit(1);
+    }
+
+
+    node.setSplitLocation(result.split_location);
+    node.setSplitDim(result.sort_dim);
+/**
+
     int Pl = 0; 
     int Pr = 0;
     int temp_Pl = 0; 
@@ -346,7 +616,7 @@ void 	KDTREESpliter::findBestObjectSplit(ObjectSplitTree & result, SBVHNode & no
             ///cerr << "sah = " << sah << endl;
 
 	    // update cost
-	    if(C < result.Cost && left_range > 0.0001 && right_range > 0.0001 && Pl > floor(n_node /4))
+	    if(C < result.Cost && left_range > 0.0001 && right_range > 0.0001)// && Pl > floor(n_node /4))
 	    {
 	        //cerr << "dim " << idx_dim << endl;
 		//cerr << "Pl = " << Pl << endl;
@@ -359,7 +629,7 @@ void 	KDTREESpliter::findBestObjectSplit(ObjectSplitTree & result, SBVHNode & no
 		result.split_location = temp_split_location;
 		//result.small_to_split = false;
 	    }
-	    else if(C == result.Cost && left_range > 0.0001 && right_range > 0.0001 && Pl > floor(n_node /4))
+	    else if(C == result.Cost && left_range > 0.0001 && right_range > 0.0001)// && Pl > floor(n_node /4))
 	    {
 	        //cerr << "dim " << idx_dim << endl;
 		//cerr << "Pl = " << Pl << endl;
@@ -426,18 +696,6 @@ void 	KDTREESpliter::findBestObjectSplit(ObjectSplitTree & result, SBVHNode & no
         result.sort_dim = idx_dim;
     }
 
-/*
-    //for debuggin purposes 
-    // is the bbox values fliped
-    if(bbox[result.sort_dim*2+1] < result.split_location || 
-       result.split_location < bbox[result.sort_dim*2+0])
-    {
-	 cerr << "split location" << result.split_location << "is outside of the bounds"<< endl;
- 	 cerr << "BNot suppose to occur " << endl;
-         cerr << bbox[result.sort_dim*2+1] << "__"<< bbox[result.sort_dim*2+0] << endl;
-	 exit(1);
-    }
-*/
     // end of debugging stuff
     if(result.sort_dim < 0 || result.sort_dim>3)
     {
@@ -454,14 +712,16 @@ void 	KDTREESpliter::findBestObjectSplit(ObjectSplitTree & result, SBVHNode & no
 
     node.setSplitLocation(result.split_location);
     node.setSplitDim(result.sort_dim);
+
+*/
 }
 
 //**************************************************************
 // Not implemented yet 
 // for the data
 //**************************************************************
-//void 	KDTREESpliter::findBestObjectSplit(ObjectSplitTree & result, SBVHNode & node)
-void 	KDTREESpliter::findBestSpatialSplit(ObjectSplitTree & result, SBVHNode & node)
+void 	KDTREESpliter::findBestObjectSplit(ObjectSplitTree & result, SBVHNode & node)
+//void 	KDTREESpliter::findBestSpatialSplit(ObjectSplitTree & result, SBVHNode & node)
 {
     int Pl = 0; 
     int Pr = 0;
@@ -685,7 +945,8 @@ void 	KDTREESpliter::findBestSpatialSplit(ObjectSplitTree & result, SBVHNode & n
             ///cerr << "sah = " << sah << endl;
 
 	    // update cost
-	    if(C < result.Cost && left_range > 0.0001 && right_range > 0.0001)
+	    if(C < result.Cost && left_range > 0.0001 && right_range > 0.0001 &&
+	     	    temp_split_location < bbox[idx_dim*2 +1] && temp_split_location > bbox[idx_dim*2+0]) 
 		 //&& Pl > floor(n_node /3) && Pr > floor(n_node/3))
 	    {
 	        //cerr << "dim " << idx_dim << endl;
@@ -699,7 +960,8 @@ void 	KDTREESpliter::findBestSpatialSplit(ObjectSplitTree & result, SBVHNode & n
 		result.split_location = temp_split_location;
 		//result.small_to_split = false;
 	    }
-	    else if(C == result.Cost && left_range > 0.0001 && right_range > 0.0001)
+	    else if(C == result.Cost && left_range > 0.0001 && right_range > 0.0001 &&
+	     	    temp_split_location < bbox[idx_dim*2 +1] && temp_split_location > bbox[idx_dim*2+0]) 
 		 //&& Pl > floor(n_node /3) && Pr > floor(n_node/3))
 	    {
 	        //cerr << "dim " << idx_dim << endl;
@@ -750,11 +1012,12 @@ void 	KDTREESpliter::findBestSpatialSplit(ObjectSplitTree & result, SBVHNode & n
       }
     }
 
+/*
     // no good split found just split the date in the middle 
     float range = bbox[1]-bbox[0];
     int idx_dim = -10;
-    if(result.sort_dim == -10 || (result.sort_dim == tree[node.getParent()].getSplitDim() 
-                  && result.split_location == tree[node.getParent()].getSplitLocation())) // did not find best split just take half
+    if(result.sort_dim == -10 || (result.sort_dim == tree[node.getParent()].getSplitDim() )) 
+                  //&& result.split_location == tree[node.getParent()].getSplitLocation())) // did not find best split just take half
     {
         for(int i= 0; i<4; i++)
         {
@@ -769,6 +1032,7 @@ void 	KDTREESpliter::findBestSpatialSplit(ObjectSplitTree & result, SBVHNode & n
         result.sort_dim = idx_dim;
     }
 
+*/
 /*
     //for debuggin purposes 
     // is the bbox values fliped
@@ -1170,7 +1434,7 @@ void KDTREESpliter::buildTree(SBVHNode & node, int me)
 	 tree[r].print();
     }
 
-    if(tree[l].getNumPrimitives() > KDT_MIN_NUM_PRIMITIVES && tree[l].isSmall(0.1) != true 
+    if(tree[l].getNumPrimitives() > KDT_MIN_NUM_PRIMITIVES && tree[l].isSmall(0.001) != true 
  	&& tree.size() < KDT_MAX_TREE_SIZE ) 
 	//&& tree[l].getNumPrimitives() < tree[me].getNumPrimitives())
     {
@@ -1182,7 +1446,7 @@ void KDTREESpliter::buildTree(SBVHNode & node, int me)
         tree[l].setLeftChild(-2);
         tree[l].setRightChild(-2);
     }
-    if(tree[r].getNumPrimitives() > KDT_MIN_NUM_PRIMITIVES && tree[r].isSmall(0.1) != true
+    if(tree[r].getNumPrimitives() > KDT_MIN_NUM_PRIMITIVES && tree[r].isSmall(0.001) != true
  	&& tree.size() < KDT_MAX_TREE_SIZE ) 
 //	&& tree[r].getNumPrimitives() < tree[me].getNumPrimitives())
     {
@@ -1305,7 +1569,7 @@ void 		KDTREESpliter::build()
    tree.push_back(root);
    tree_size = 1;
    //cerr << "l child =" << tree[0].getLeftChild() << endl; 
-   //tree[0].print();
+   tree[0].print();
    //append(root);
    cerr << "**********************Before Build************" << endl;
    buildTree(tree[0], 0);
@@ -1604,6 +1868,7 @@ void 		KDTREESpliter::test()
     int num_of_nodes = tree.size();
     cout << "size of data in byte = " << size_of_data<< endl;
     cout << "size of tree in byte = " << size_of_tree<< endl;
+    cout << "Number of points  = " << num_points_KDT<< endl;
 
 
     // save in files

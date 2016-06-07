@@ -243,8 +243,8 @@ void SBVHSpliter::findBestSpatialSplit(SBVHObjectSplit & result, SBVHNode & node
     int P_span= 0;
     
     // determine step size to consider
-    if(n_node > 1000)
-    	step = floor(n_node/1000);
+    if(n_node > 100)
+    	step = floor(n_node/100);
 	//step =1;
 
     for(int idx_dim = 0; idx_dim < 4; idx_dim++)
@@ -259,18 +259,26 @@ void SBVHSpliter::findBestSpatialSplit(SBVHObjectSplit & result, SBVHNode & node
             sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than0_lower_bound());
     	else if(idx_dim == 0 && split_case == 1)
             sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than0_upper_bound());
+    	else if(idx_dim == 0 && split_case == 2)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than0());
         else if(idx_dim == 1 && split_case == 0)
             sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than1_lower_bound());
     	else if(idx_dim == 1 && split_case == 1)
             sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than1_upper_bound());
+    	else if(idx_dim == 1 && split_case == 2)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than1());
     	else if(idx_dim == 2 && split_case == 0)
             sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than2_lower_bound());
     	else if(idx_dim == 2 && split_case == 1)
             sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than2_upper_bound());
+    	else if(idx_dim == 2 && split_case == 2)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than2());
  	else if(idx_dim == 3 && split_case == 0)
             sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than3_lower_bound());
     	else if(idx_dim == 3 && split_case == 1)
             sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than3_upper_bound());
+    	else if(idx_dim == 3 && split_case == 2)
+            sort(node.getPrimitivesSpec().begin(), node.getPrimitivesSpec().end(),less_than3());
         else 
 	{
 	   cerr <<  "Not suppose to occur : " << endl;
@@ -337,28 +345,17 @@ void SBVHSpliter::findBestSpatialSplit(SBVHObjectSplit & result, SBVHNode & node
 
 // Do not remove this tajo
             // set up range to determinw overlaps
-	    if((n_node - idx_node) > 1000)
-	    	threshold_num = idx_node + 1000;
+	    if((n_node - idx_node) > 10000)
+	    	threshold_num = idx_node + 10000;
 	    else
 	    	threshold_num = n_node;
 
-	    if(idx_node >1000)
-		threshold_num_begin =idx_node - 1000;
+	    if(idx_node >10000)
+		threshold_num_begin =idx_node - 10000;
 	    else  
 		threshold_num_begin =0;
 	    //temp_Pl= 0;
-/*
-            for(int idx_tracer=threshold_num_begin; idx_tracer < idx_node; idx_tracer++)
-	    {
-                float * temp_bb = node.node_spec[idx_tracer].getBbox(); 
-	        if(temp_split_location<=temp_bb[idx_dim*2+0])
-	        {	    
-	             temp_Pl++;
-		}
-	    }
-	    Pl = idx_node - temp_Pl;
-
-*/	    temp_Pr = 0;
+	    temp_Pr = 0;
             P_span = 0;
             for(int idx_tracer= threshold_num_begin; idx_tracer < threshold_num; idx_tracer++)
 	    {
@@ -393,7 +390,9 @@ void SBVHSpliter::findBestSpatialSplit(SBVHObjectSplit & result, SBVHNode & node
             ///cerr << "sah = " << sah << endl;
 
 	    // update cost
-	    if(C < result.Cost && left_range > 0.0001 && right_range > 0.0001 )
+	    if(C < result.Cost && left_range > 0.0001 && right_range > 0.0001)
+	     	    //temp_split_location < bbox[idx_dim*2 +1] && temp_split_location > bbox[idx_dim*2+0] ) 
+		//&& P_span < n_node/3)
 		//&& Pl > floor(n_node /3) && Pr > floor(n_node/3))
 	    {
 	        //cerr << "dim " << idx_dim << endl;
@@ -407,7 +406,9 @@ void SBVHSpliter::findBestSpatialSplit(SBVHObjectSplit & result, SBVHNode & node
 		result.split_location = temp_split_location;
 		//result.small_to_split = false;
 	    }
-	    else if(C == result.Cost && left_range > 0.0001 && right_range > 0.0001 )
+	    else if(C == result.Cost && left_range > 0.0001 && right_range > 0.0001) 
+	     	    //temp_split_location < bbox[idx_dim*2 +1] && temp_split_location > bbox[idx_dim*2+0] ) 
+		//&& P_span < n_node/3)
 		//&& Pl > floor(n_node /3) && Pr > floor(n_node/3))
 	    {
 	        //cerr << "dim " << idx_dim << endl;
@@ -448,19 +449,31 @@ void SBVHSpliter::findBestSpatialSplit(SBVHObjectSplit & result, SBVHNode & node
         cerr << "Split dim = " << result.sort_dim << endl;;
 	cerr << "Split case = " << split_case << endl;
         node.print();
-	exit(0);
+	exit(1);
       }
     }
-    //for debuggin purposes 
-    // is the bbox values fliped
-    if(bbox[result.sort_dim*2+1] < result.split_location || 
-       result.split_location < bbox[result.sort_dim*2+0])
+
+    float range = -10;
+    int idx_dim = -10;
+    if(result.sort_dim ==-10 || result.sort_dim ==-1000000 || 
+	(result.sort_dim == tree[node.getParent()].getSplitDim() &&
+	(result.split_location = tree[node.getParent()].getSplitLocation() ))
+	|| (temp_split_location < bbox[idx_dim*2 +1] && temp_split_location > bbox[idx_dim*2+0] ) 
+	)
     {
-	 cerr << "split location" << result.split_location << "is outside of the bounds"<< endl;
- 	 cerr << "BNot suppose to occur " << endl;
-         cerr << bbox[result.sort_dim*2+1] << "__"<< bbox[result.sort_dim*2+0] << endl;
-	 exit(0);
+        for(int i= 0; i<4; i++)
+        {
+           if((bbox[2*i+1]-bbox[2*i+0]) >=range && i != result.sort_dim)	
+	   {
+		range = bbox[2*i+1] - bbox[2*i+0];
+		idx_dim = i;
+	   }
+        }
+ 
+	result.split_location = (bbox[2*idx_dim+0] + bbox[2*idx_dim+1])/2;
+        result.sort_dim = idx_dim;
     }
+
     // end of debugging stuff
     if(result.sort_dim < 0 || result.sort_dim>3)
     {
@@ -472,7 +485,7 @@ void SBVHSpliter::findBestSpatialSplit(SBVHObjectSplit & result, SBVHNode & node
         cerr << "Split dim = " << result.sort_dim << endl;;
 	cerr << "Split case = " << split_case << endl;
         node.print();
-	exit(0);
+	exit(1);
     }
 
     node.setSplitLocation(result.split_location);
@@ -667,8 +680,8 @@ void SBVHSpliter::performObjectSplit(SBVHObjectSplit & split, SBVHNode & node, S
 		updateBbox(l_bbox, new_segment.getBbox());	
 
 		append(r_index, id);
-		append(r_node_spec, data[id]);
-		updateBbox(r_bbox, data[id].getBbox());	
+		append(r_node_spec, node.node_spec[i]);
+		updateBbox(r_bbox, node.node_spec[i].getBbox());	
 	    }
 	    else
 	    {
@@ -677,22 +690,22 @@ void SBVHSpliter::performObjectSplit(SBVHObjectSplit & split, SBVHNode & node, S
 		updateBbox(r_bbox, new_segment.getBbox());	
 
 		append(l_index, id);
-		append(l_node_spec, data[id]);
-		updateBbox(l_bbox, data[id].getBbox());	
+		append(l_node_spec, node.node_spec[i]);
+		updateBbox(l_bbox, node.node_spec[i].getBbox());	
 	    }
 	    
 	}
         else if(split_pos >= bb[dim*2+1])
     	{
   	   append(l_index, id);
-  	   append(l_node_spec, data[id]);
-	   updateBbox(l_bbox, data[id].getBbox());	
+  	   append(l_node_spec, node.node_spec[i]);
+	   updateBbox(l_bbox, node.node_spec[i].getBbox());	
 	}
         else if(split_pos <= bb[dim*2+0])
 	{
   	   append(r_index, id);
-	   append(r_node_spec, data[id]);
-	   updateBbox(r_bbox, data[id].getBbox());	
+	   append(r_node_spec, node.node_spec[i]);
+	   updateBbox(r_bbox, node.node_spec[i].getBbox());	
 	}
         else
 	{
@@ -745,7 +758,7 @@ void SBVHSpliter::buildTree(SBVHNode & node, int me)
     //level++;
     int n = node.getNumPrimitives();
 
-    //cerr << "me Primitives =" << tree[me].getNumPrimitives() << endl;
+    cerr << "me Primitives =" << tree[me].getNumPrimitives() << endl;
 
     SBVHObjectSplit split;
     SBVHNode nodeL;
@@ -1478,9 +1491,11 @@ void 		SBVHSpliter::test()
     search_time_sec = ((float)search_time) / CLOCKS_PER_SEC;
     //sort(result_0.begin(), result_0.end());
 
-    //for(int i=0; i<numb*numb*numb*numb; i++)
+    for(int i=0; i<numb*numb*numb*numb; i++)
+    {
         //traditionalFind(point[i], .05, result_1);
         //traditionalFind(temp_pt, 1.00, result_1);
+    }
     cout << "*********************SBVH Results*********************" << endl;
     cout << "Build time = " << build_time_sec << "		Search time =" << search_time_sec << endl;
     cout << "size of result 0 = " << result_0.size() <<endl;
@@ -1500,6 +1515,7 @@ void 		SBVHSpliter::test()
     int num_of_nodes = tree.size();
     cout << "size of data in byte = " << size_of_data<< endl;
     cout << "size of tree in byte = " <<size_of_tree<< endl;
+    cout << "Num of points  = " <<num_points<< endl;
 
 
     // save in files
